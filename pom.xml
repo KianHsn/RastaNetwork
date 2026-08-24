@@ -19,7 +19,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
                 <configuration>
-                    <mainClass>routinggame.RoutingGameApp</mainClass>
+                    <mainClass>routing_game.RoutingGameApp</mainClass>
                 </configuration>
             </plugin>
         </plugins>

@@ -11,7 +11,6 @@ public final class RoutingGameApp {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception ignored) {
-                // keep default look and feel
             }
             RoutingGameFrame frame = new RoutingGameFrame();
             frame.setLocationRelativeTo(null);

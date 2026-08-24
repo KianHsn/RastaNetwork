@@ -7,6 +7,10 @@ public final class RoutingEntry {
     private final int nextHop;
     private final int cost;
 
+    public RoutingEntry(int destination, int nextHop) {
+        this(destination, nextHop, 0);
+    }
+
     public RoutingEntry(int destination, int nextHop, int cost) {
         this.destination = destination;
         this.nextHop = nextHop;
@@ -33,13 +37,11 @@ public final class RoutingEntry {
         if (!(o instanceof RoutingEntry other)) {
             return false;
         }
-        return destination == other.destination
-                && nextHop == other.nextHop
-                && cost == other.cost;
+        return destination == other.destination && nextHop == other.nextHop;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(destination, nextHop, cost);
+        return Objects.hash(destination, nextHop);
     }
 }
