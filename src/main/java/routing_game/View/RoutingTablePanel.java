@@ -21,35 +21,40 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class RoutingTablePanel extends JPanel {
-    private static final Color BG = new Color(24, 30, 48);
-    private static final Color HEADER_BG = new Color(36, 46, 72);
-    private static final Color GRID = new Color(58, 70, 102);
-    private static final Color TEXT = new Color(236, 240, 250);
-    private static final Color BROKEN_BG = new Color(96, 28, 36);
-    private static final Color BROKEN_FG = new Color(255, 196, 196);
-    private static final Color CELL_BG = new Color(30, 38, 58);
-
-    private final JLabel title = new JLabel("Click a router");
+    private final JLabel title = new JLabel("Select a router");
+    private final JLabel badge = new JLabel("idle");
+    private final JLabel hint = new JLabel("Click a glowing router on the map");
     private final DefaultTableModel model;
     private final JTable table;
     private BoardView session;
     private Integer editingNode;
+    private int hoverRow = -1;
 
     public RoutingTablePanel() {
-        setLayout(new BorderLayout(8, 8));
-        setOpaque(true);
-        setBackground(BG);
-        setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(52, 64, 96)),
-                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
-        title.setForeground(TEXT);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 15f));
-        add(title, BorderLayout.NORTH);
+        setLayout(new BorderLayout(0, 8));
+        setOpaque(false);
+        setBorder(null);
+
+        title.setForeground(GameTheme.TEXT);
+        title.setFont(GameTheme.ui(16f, Font.BOLD));
+        badge.setForeground(GameTheme.TEXT);
+        badge.setFont(GameTheme.ui(11f, Font.BOLD));
+        hint.setForeground(GameTheme.TEXT_MUTED);
+        hint.setFont(GameTheme.ui(12f, Font.PLAIN));
+
+        JPanel header = new JPanel(new BorderLayout(8, 4));
+        header.setOpaque(false);
+        header.add(title, BorderLayout.CENTER);
+        header.add(GameTheme.chip(badge, GameTheme.BG_ELEVATED), BorderLayout.EAST);
 
         model = new DefaultTableModel(new Object[]{"Destination", "Next router"}, 0) {
             @Override
@@ -73,20 +78,57 @@ public final class RoutingTablePanel extends JPanel {
         table.setRowHeight(32);
         table.setFillsViewportHeight(true);
         table.setShowGrid(true);
-        table.setGridColor(GRID);
-        table.setBackground(CELL_BG);
-        table.setForeground(TEXT);
-        table.setSelectionBackground(new Color(70, 110, 200));
+        table.setGridColor(GameTheme.STROKE);
+        table.setIntercellSpacing(new Dimension(1, 1));
+        table.setBackground(GameTheme.BG_CARD);
+        table.setForeground(GameTheme.TEXT);
+        table.setSelectionBackground(new Color(70, 110, 210));
         table.setSelectionForeground(Color.WHITE);
-        table.setFont(table.getFont().deriveFont(13f));
+        table.setFont(GameTheme.ui(13f, Font.PLAIN));
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setRowSelectionAllowed(true);
+        table.addMouseMotionListener(new MouseAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                int row = table.rowAtPoint(e.getPoint());
+                if (row != hoverRow) {
+                    hoverRow = row;
+                    table.repaint();
+                }
+            }
+        });
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseExited(MouseEvent e) {
+                hoverRow = -1;
+                table.repaint();
+            }
+        });
         installChrome();
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getViewport().setBackground(CELL_BG);
-        add(scroll, BorderLayout.CENTER);
+        scroll.getViewport().setBackground(GameTheme.BG_CARD);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(true);
+
+        JPanel body = new JPanel(new BorderLayout(0, 8)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(GameTheme.BG_CARD);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(GameTheme.STROKE);
+                g2.drawRect(0, 0, getWidth() - 1, getHeight() - 1);
+                g2.dispose();
+            }
+        };
+        body.setOpaque(false);
+        body.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        body.add(header, BorderLayout.NORTH);
+        body.add(scroll, BorderLayout.CENTER);
+        body.add(hint, BorderLayout.SOUTH);
+        add(body, BorderLayout.CENTER);
     }
 
     public void setSession(BoardView session) {
@@ -98,16 +140,21 @@ public final class RoutingTablePanel extends JPanel {
                 : new Object[]{"Destination", "Next router"});
         model.setRowCount(0);
         installChrome();
-        title.setText("Click a router");
+        title.setText("Select a router");
+        badge.setText("idle");
+        hint.setText("Click a glowing router on the map");
     }
 
     public void showNode(int nodeId) {
         this.editingNode = nodeId;
         NetworkMap map = session.map();
         NetworkNode node = map.node(nodeId);
-        title.setText(titleFor(node));
+        title.setText(node.label());
+        badge.setText(badgeFor(node));
+        hint.setText(hintFor(node));
         List<Integer> hops = session.neighborChoices(nodeId);
         JComboBox<String> hopBox = new JComboBox<>();
+        GameTheme.styleCombo(hopBox);
         hopBox.addItem("");
         for (int hop : hops) {
             hopBox.addItem(map.node(hop).label());
@@ -135,6 +182,7 @@ public final class RoutingTablePanel extends JPanel {
                 model.addRow(new Object[]{destLabel, hop});
             }
         }
+        table.repaint();
     }
 
     public Map<Integer, RoutingEntry> readPlayerTable() {
@@ -163,39 +211,54 @@ public final class RoutingTablePanel extends JPanel {
         return editingNode;
     }
 
-    private String titleFor(NetworkNode node) {
+    private String badgeFor(NetworkNode node) {
         if (session.showCost()) {
             if (session.failedLink() == null) {
-                return node.label() + "  ·  Bellman-Ford table";
+                return "inspect";
             }
             if (session.isCompleted(node.id())) {
-                return node.label() + "  ·  updated";
+                return "updated";
             }
             for (NetworkNode dest : session.map().hosts()) {
                 if (session.isRowBroken(node.id(), dest.id())) {
-                    return node.label() + "  ·  fix red rows";
+                    return "repair";
                 }
             }
-            return node.label() + "  ·  unchanged";
+            return "stable";
         }
-        return session.isCompleted(node.id())
-                ? node.label() + "  ·  accepted"
-                : node.label() + "  ·  next router";
+        return session.isCompleted(node.id()) ? "accepted" : "edit";
+    }
+
+    private String hintFor(NetworkNode node) {
+        if (session.showCost()) {
+            if (session.failedLink() == null) {
+                return "Inspect the table, then click a weighted link to fail it";
+            }
+            if (session.isCompleted(node.id())) {
+                return "This router already uses the new shortest paths";
+            }
+            return "Red rows are broken — pick the cheapest neighbor";
+        }
+        if (session.isCompleted(node.id())) {
+            return "Table accepted. The packet will follow this next hop";
+        }
+        return "Pick the next router for every destination, then Check";
     }
 
     private void installChrome() {
         JTableHeader header = table.getTableHeader();
         header.setReorderingAllowed(false);
         header.setResizingAllowed(false);
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
-        header.setPreferredSize(new Dimension(0, 32));
+        header.setFont(GameTheme.ui(12f, Font.BOLD));
+        header.setPreferredSize(new Dimension(0, 34));
+        header.setBackground(GameTheme.BG_ELEVATED);
         DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object value, boolean isSelected,
                                                            boolean hasFocus, int row, int column) {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, column);
-                label.setBackground(HEADER_BG);
-                label.setForeground(TEXT);
+                label.setBackground(GameTheme.BG_ELEVATED);
+                label.setForeground(GameTheme.TEXT_MUTED);
                 label.setHorizontalAlignment(JLabel.CENTER);
                 label.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
                 label.setOpaque(true);
@@ -211,16 +274,21 @@ public final class RoutingTablePanel extends JPanel {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, column);
                 label.setHorizontalAlignment(JLabel.CENTER);
                 boolean broken = isBrokenRow(row);
+                boolean hover = row == hoverRow;
                 if (isSelected) {
                     label.setBackground(t.getSelectionBackground());
                     label.setForeground(t.getSelectionForeground());
                 } else if (broken) {
-                    label.setBackground(BROKEN_BG);
-                    label.setForeground(BROKEN_FG);
+                    label.setBackground(hover ? new Color(140, 42, 58) : new Color(110, 32, 46));
+                    label.setForeground(new Color(255, 210, 214));
+                } else if (hover) {
+                    label.setBackground(new Color(40, 56, 92));
+                    label.setForeground(GameTheme.TEXT);
                 } else {
-                    label.setBackground(CELL_BG);
-                    label.setForeground(TEXT);
+                    label.setBackground(row % 2 == 0 ? GameTheme.BG_CARD : new Color(24, 34, 58));
+                    label.setForeground(GameTheme.TEXT);
                 }
+                label.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
                 label.setOpaque(true);
                 return label;
             }

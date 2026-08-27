@@ -8,9 +8,6 @@ import routing_game.Model.NetworkNode;
 import routing_game.Model.RoutingEntry;
 
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -20,24 +17,27 @@ import javax.swing.JSplitPane;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Insets;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
 public final class RoutingGameFrame extends JFrame {
-    private static final Color BG = new Color(12, 16, 28);
-    private static final Color TEXT = new Color(220, 228, 242);
-
     private final NetworkCanvas canvas = new NetworkCanvas();
     private final RoutingTablePanel tablePanel = new RoutingTablePanel();
     private final JLabel progressLabel = new JLabel("Ready");
     private final JLabel statusLabel = new JLabel("Start a new game.");
     private final JLabel helpLabel = new JLabel();
+    private final JLabel wordmark = new JLabel("Routing Lab");
     private final JComboBox<Integer> sizeBox = new JComboBox<>(new Integer[]{6, 7, 8, 9, 10});
-    private final JComboBox<String> modeBox = new JComboBox<>(new String[]{"Routing", "Bellman-Ford"});
-    private final JButton checkButton = button("Check table");
+    private final GlowButton routingMode = new GlowButton("Routing", GlowButton.Style.GHOST);
+    private final GlowButton bfMode = new GlowButton("Bellman-Ford", GlowButton.Style.GHOST);
+    private final GlowButton newGameButton = new GlowButton("New network", GlowButton.Style.PRIMARY);
+    private final GlowButton checkButton = new GlowButton("Check table", GlowButton.Style.ACCENT);
+    private final GlowButton hintButton = new GlowButton("Neighbors", GlowButton.Style.GHOST);
+    private final JPanel statusAccent = new JPanel();
+    private boolean bellmanFord = true;
     private BoardView session;
     private GameSession hopSession;
     private BellmanFordSession bfSession;
@@ -45,64 +45,82 @@ public final class RoutingGameFrame extends JFrame {
     public RoutingGameFrame() {
         super("Network Routing Table Game");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(1100, 680));
-        JPanel root = new JPanel(new BorderLayout(10, 10));
-        root.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        root.setBackground(BG);
+        setMinimumSize(new Dimension(1140, 720));
+        JPanel root = new JPanel(new BorderLayout(8, 8));
+        root.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        root.setBackground(GameTheme.BG_APP);
         setContentPane(root);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, canvas, buildSide());
-        split.setResizeWeight(0.78);
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, wrapCanvas(), buildSide());
+        split.setResizeWeight(0.76);
         split.setContinuousLayout(true);
         split.setBorder(null);
-        split.setDividerSize(8);
-        split.setBackground(BG);
+        split.setDividerSize(6);
+        split.setBackground(GameTheme.BG_APP);
+        split.setOpaque(false);
 
         root.add(buildTopBar(), BorderLayout.NORTH);
         root.add(split, BorderLayout.CENTER);
         root.add(buildStatusBar(), BorderLayout.SOUTH);
         canvas.setOnNodeClicked(this::onNodeClicked);
         canvas.setOnLinkClicked(this::onLinkClicked);
-        modeBox.setSelectedItem("Bellman-Ford");
-        modeBox.addActionListener(e -> newGame());
         newGame();
-        setSize(1280, 760);
+        setSize(1320, 800);
+    }
+
+    private JPanel wrapCanvas() {
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.setOpaque(true);
+        wrap.setBackground(GameTheme.BG_DEEP);
+        wrap.setBorder(BorderFactory.createLineBorder(GameTheme.STROKE, 1));
+        wrap.add(canvas, BorderLayout.CENTER);
+        canvas.setBorder(BorderFactory.createEmptyBorder());
+        return wrap;
     }
 
     private JPanel buildTopBar() {
-        JPanel bar = new JPanel();
-        bar.setOpaque(false);
-        bar.setLayout(new BoxLayout(bar, BoxLayout.X_AXIS));
-        JButton newGame = button("New network");
-        JButton hint = button("Neighbors");
+        routingMode.setToolTipText("Hop-by-hop forwarding game");
+        bfMode.setToolTipText("Fail a link, then repair Bellman-Ford tables");
+        newGameButton.setToolTipText("Generate a new random network");
+        checkButton.setToolTipText("Check the selected router table");
+        hintButton.setToolTipText("Show neighbors of the selected router");
+
+        wordmark.setForeground(GameTheme.TEXT);
+        wordmark.setFont(GameTheme.ui(18f, Font.BOLD));
+        wordmark.setBorder(BorderFactory.createEmptyBorder(0, 2, 2, 0));
+
         sizeBox.setSelectedItem(6);
-        sizeBox.setMaximumSize(new Dimension(70, 28));
-        modeBox.setMaximumSize(new Dimension(140, 28));
-        newGame.addActionListener(e -> newGame());
+        sizeBox.setPreferredSize(new Dimension(128, 32));
+        GameTheme.styleCombo(sizeBox);
+
+        routingMode.addActionListener(e -> setMode(false));
+        bfMode.addActionListener(e -> setMode(true));
+        newGameButton.addActionListener(e -> newGame());
         checkButton.addActionListener(e -> checkTable());
-        hint.addActionListener(e -> showNeighbors());
-        progressLabel.setForeground(Color.WHITE);
-        progressLabel.setFont(progressLabel.getFont().deriveFont(Font.BOLD, 15f));
-        JLabel modeLbl = new JLabel("Game");
-        modeLbl.setForeground(TEXT);
+        hintButton.addActionListener(e -> showNeighbors());
+
+        progressLabel.setForeground(GameTheme.TEXT);
+        progressLabel.setFont(GameTheme.ui(13f, Font.BOLD));
         JLabel sizeLbl = new JLabel("Nodes");
-        sizeLbl.setForeground(TEXT);
-        bar.add(modeLbl);
-        bar.add(Box.createHorizontalStrut(8));
-        bar.add(modeBox);
-        bar.add(Box.createHorizontalStrut(12));
-        bar.add(sizeLbl);
-        bar.add(Box.createHorizontalStrut(8));
-        bar.add(sizeBox);
-        bar.add(Box.createHorizontalStrut(12));
-        bar.add(newGame);
-        bar.add(Box.createHorizontalStrut(8));
-        bar.add(checkButton);
-        bar.add(Box.createHorizontalStrut(8));
-        bar.add(hint);
-        bar.add(Box.createHorizontalGlue());
-        bar.add(progressLabel);
-        return bar;
+        sizeLbl.setForeground(GameTheme.TEXT_MUTED);
+        sizeLbl.setFont(GameTheme.ui(12f, Font.BOLD));
+
+        JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        controls.setOpaque(false);
+        controls.add(routingMode);
+        controls.add(bfMode);
+        controls.add(sizeLbl);
+        controls.add(sizeBox);
+        controls.add(newGameButton);
+        controls.add(checkButton);
+        controls.add(hintButton);
+
+        JPanel hud = new JPanel(new BorderLayout(0, 6));
+        hud.setOpaque(false);
+        hud.add(wordmark, BorderLayout.NORTH);
+        hud.add(controls, BorderLayout.CENTER);
+        hud.add(GameTheme.chip(progressLabel, GameTheme.BG_ELEVATED), BorderLayout.SOUTH);
+        return hud;
     }
 
     private JPanel buildSide() {
@@ -110,59 +128,93 @@ public final class RoutingGameFrame extends JFrame {
         side.setPreferredSize(new Dimension(320, 600));
         side.setMinimumSize(new Dimension(260, 400));
         side.setOpaque(false);
-        helpLabel.setForeground(new Color(190, 200, 220));
-        helpLabel.setFont(helpLabel.getFont().deriveFont(13f));
-        helpLabel.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
-        side.add(helpLabel, BorderLayout.NORTH);
+        helpLabel.setForeground(GameTheme.TEXT);
+        helpLabel.setFont(GameTheme.ui(13f, Font.PLAIN));
+        JPanel helpCard = GameTheme.card(helpLabel);
+        side.add(helpCard, BorderLayout.NORTH);
         side.add(tablePanel, BorderLayout.CENTER);
         return side;
     }
 
     private JPanel buildStatusBar() {
-        JPanel bar = new JPanel(new BorderLayout());
+        JPanel bar = new JPanel(new BorderLayout(10, 0));
         bar.setOpaque(false);
-        statusLabel.setForeground(TEXT);
-        statusLabel.setFont(statusLabel.getFont().deriveFont(13f));
-        bar.add(statusLabel, BorderLayout.WEST);
+        statusAccent.setPreferredSize(new Dimension(4, 24));
+        statusAccent.setBackground(GameTheme.CYAN);
+        statusLabel.setForeground(GameTheme.TEXT);
+        statusLabel.setFont(GameTheme.ui(13.5f, Font.PLAIN));
+        bar.add(statusAccent, BorderLayout.WEST);
+        bar.add(statusLabel, BorderLayout.CENTER);
         return bar;
     }
 
-    private static JButton button(String text) {
-        JButton b = new JButton(text);
-        b.setMargin(new Insets(4, 12, 4, 12));
-        return b;
+    private Color modeAccent() {
+        return bellmanFord ? GameTheme.VIOLET : GameTheme.CYAN;
     }
 
-    private boolean bellmanFordMode() {
-        return "Bellman-Ford".equals(modeBox.getSelectedItem());
+    private void setMode(boolean bf) {
+        if (bellmanFord == bf && session != null) {
+            return;
+        }
+        bellmanFord = bf;
+        newGame();
+    }
+
+    private void applyModeChrome() {
+        Color accent = modeAccent();
+        routingMode.setSelected(!bellmanFord);
+        bfMode.setSelected(bellmanFord);
+        routingMode.setAccent(GameTheme.CYAN);
+        bfMode.setAccent(GameTheme.VIOLET);
+        newGameButton.setAccent(accent);
+        checkButton.setAccent(GameTheme.LIME);
+        hintButton.setAccent(accent);
+        wordmark.setForeground(accent);
+        statusAccent.setBackground(accent);
+    }
+
+    private void setStatus(String text, Color accent) {
+        statusLabel.setText(text);
+        statusAccent.setBackground(accent);
     }
 
     private void newGame() {
         int n = (Integer) sizeBox.getSelectedItem();
         long seed = new Random().nextLong();
-        if (bellmanFordMode()) {
+        applyModeChrome();
+        if (bellmanFord) {
             hopSession = null;
             bfSession = new BellmanFordSession(n, seed);
             session = bfSession;
             setTitle("Bellman-Ford Routing Game");
             checkButton.setText("Check update");
-            helpLabel.setText("<html>1. Inspect a router table.<br>2. Click one <b>weighted link</b> to fail it."
-                    + "<br>3. Red rows used that link — pick the neighbor with the lowest "
-                    + "<b>weight + remaining cost</b>.</html>");
-            statusLabel.setText("Click a weighted link to fail it. Tables start with the Bellman-Ford routes.");
+            checkButton.revalidate();
+            helpLabel.setText("<html><body style='width:270px'><b style='color:#C8B4FF'>Bellman-Ford recovery</b><br>"
+                    + "1. Click a router to inspect its table.<br>"
+                    + "2. Click a <b>weighted link</b> to fail it.<br>"
+                    + "3. Red rows used that link — pick neighbor <b>n</b> with the lowest "
+                    + "<span style='color:#FFD56A'>weight + remaining cost</span>.</body></html>");
+            setStatus("Hover a link to see its weight, then click one to fail it.", GameTheme.VIOLET);
+            canvas.setBanner("Fail a link", "then repair every red row");
         } else {
             bfSession = null;
             hopSession = new GameSession(n, seed);
             session = hopSession;
             setTitle("Network Routing Table Game");
             checkButton.setText("Check table");
-            helpLabel.setText("<html>Click a router. Pick the <b>next router</b> for each host, then Check table.</html>");
-            statusLabel.setText("Packet at " + session.map().node(session.map().sourceId()).label()
-                    + ". Configure level " + hopSession.unlockedLevel() + " routers.");
+            checkButton.revalidate();
+            helpLabel.setText("<html><body style='width:270px'><b style='color:#40D6FF'>Hop-by-hop routing</b><br>"
+                    + "Click a router. For each host, pick the <b>next router</b> that is closer "
+                    + "to that destination, then press <span style='color:#48E29C'>Check table</span>.</body></html>");
+            setStatus("Packet at " + session.map().node(session.map().sourceId()).label()
+                    + ". Configure level " + hopSession.unlockedLevel() + " routers.", GameTheme.CYAN);
+            canvas.setBanner("Route the packet", "fill tables from the source outward");
         }
         canvas.setSession(session);
         tablePanel.setSession(session);
         refreshProgress();
+        canvas.showToast(bellmanFord ? "New Bellman-Ford network" : "New routing network", modeAccent());
+        canvas.repaint();
     }
 
     private void onNodeClicked(int nodeId) {
@@ -173,28 +225,33 @@ public final class RoutingGameFrame extends JFrame {
         canvas.repaint();
         NetworkNode node = session.map().node(nodeId);
         switch (sel) {
-            case HOST -> statusLabel.setText(node.label() + " is a host. Fill tables on routers.");
-            case LOCKED -> statusLabel.setText("Locked. Complete level "
-                    + (hopSession == null ? 1 : hopSession.unlockedLevel()) + " first.");
+            case HOST -> setStatus(node.label() + " is a host. Fill tables on routers.", GameTheme.AMBER);
+            case LOCKED -> setStatus("Locked. Complete level "
+                    + (hopSession == null ? 1 : hopSession.unlockedLevel()) + " first.", GameTheme.ROSE);
             case OK -> {
                 tablePanel.showNode(nodeId);
                 if (session.showPacket()) {
                     Integer told = session.toldNextHop(nodeId);
                     if (told != null) {
                         canvas.animatePreview(nodeId, told);
-                        statusLabel.setText("Router " + node.label() + " forwards to "
-                                + session.map().node(told).label() + ".");
+                        setStatus("Router " + node.label() + " forwards to "
+                                + session.map().node(told).label() + ".", GameTheme.CYAN);
                         return;
                     }
                 }
                 if (bfSession != null && bfSession.phase() == BellmanFordSession.Phase.PICK_LINK) {
-                    statusLabel.setText("Inspecting " + node.label()
-                            + ". Click a link on the map when you are ready to fail it.");
+                    setStatus("Inspecting " + node.label()
+                            + ". Click a glowing link when you are ready to fail it.", GameTheme.VIOLET);
+                    canvas.showToast("Inspecting " + node.label(), GameTheme.VIOLET);
                     return;
                 }
-                statusLabel.setText(session.isCompleted(nodeId)
+                boolean done = session.isCompleted(nodeId);
+                setStatus(done
                         ? "Router " + node.label() + " is already complete."
-                        : "Editing " + node.label() + ".");
+                        : "Editing " + node.label() + ".",
+                        done ? GameTheme.LIME : modeAccent());
+                canvas.showToast(done ? node.label() + " complete" : "Editing " + node.label(),
+                        done ? GameTheme.LIME : modeAccent());
             }
         }
     }
@@ -206,14 +263,17 @@ public final class RoutingGameFrame extends JFrame {
         BellmanFordSession.FailResult result = bfSession.failLink(link);
         canvas.repaint();
         switch (result) {
-            case ALREADY_FAILED -> statusLabel.setText("A link already failed. Update the red rows, or start a new network.");
+            case ALREADY_FAILED -> setStatus(
+                    "A link already failed. Update the red rows, or start a new network.", GameTheme.AMBER);
             case DISCONNECTS -> JOptionPane.showMessageDialog(this,
                     "That link is a bridge — removing it disconnects the network.\nPick another link.");
             case NOT_USED -> JOptionPane.showMessageDialog(this,
                     "No current shortest-path table uses that link.\nPick a link that some router actually forwards on.");
             case OK -> {
-                statusLabel.setText("Failed " + bfSession.formatLink(link)
-                        + ". Red rows must be updated with Bellman-Ford.");
+                setStatus("Failed " + bfSession.formatLink(link)
+                        + ". Red rows must be updated with Bellman-Ford.", GameTheme.ROSE);
+                canvas.setBanner("Link failed", bfSession.formatLink(link));
+                canvas.showToast("Link failed — repair red rows", GameTheme.ROSE);
                 Integer nodeId = tablePanel.editingNode();
                 if (nodeId == null || bfSession.isCompleted(nodeId)) {
                     for (NetworkNode router : bfSession.map().routers()) {
@@ -261,27 +321,31 @@ public final class RoutingGameFrame extends JFrame {
         canvas.repaint();
         switch (result) {
             case INCOMPLETE -> {
-                statusLabel.setText("Pick a next router for every destination that needs an update.");
+                setStatus("Pick a next router for every destination that needs an update.", GameTheme.AMBER);
+                canvas.showToast("Table incomplete", GameTheme.AMBER);
                 JOptionPane.showMessageDialog(this, "The table is incomplete.");
             }
             case WRONG_HOP, WRONG -> {
                 if (bfSession != null) {
-                    statusLabel.setText("Pick the neighbor with the lowest weight + remaining cost.");
+                    setStatus("Pick the neighbor with the lowest weight + remaining cost.", GameTheme.ROSE);
+                    canvas.showToast("Not the Bellman-Ford hop", GameTheme.ROSE);
                     JOptionPane.showMessageDialog(this,
                             "Not the Bellman-Ford next hop.\n"
                                     + "Choose neighbor n that minimizes weight(you, n) + cost(n → dest).");
                 } else {
-                    statusLabel.setText("Next router must be a neighbor closer to that host.");
+                    setStatus("Next router must be a neighbor closer to that host.", GameTheme.ROSE);
+                    canvas.showToast("Illegal next router", GameTheme.ROSE);
                     JOptionPane.showMessageDialog(this,
                             "Illegal next router.\nPick a neighbor that is closer to the destination host.");
                 }
             }
             case CORRECT -> {
                 tablePanel.showNode(nodeId);
+                canvas.showToast("Table accepted", GameTheme.LIME);
                 if (hopSession != null) {
                     List<int[]> hops = hopSession.takePendingHops();
                     if (!hops.isEmpty()) {
-                        statusLabel.setText("Packet forwarding…");
+                        setStatus("Packet forwarding…", GameTheme.GOLD);
                         canvas.animateHops(hops, hopSession::arriveAt, this::afterPacketMoved);
                     } else {
                         Integer told = session.toldNextHop(nodeId);
@@ -291,12 +355,14 @@ public final class RoutingGameFrame extends JFrame {
                         afterPacketMoved();
                     }
                 } else if (bfSession != null && bfSession.phase() == BellmanFordSession.Phase.DONE) {
-                    statusLabel.setText("All broken rows updated.");
+                    setStatus("All broken rows updated.", GameTheme.LIME);
+                    canvas.setBanner("Network recovered", "every red row follows the new shortest paths");
                     JOptionPane.showMessageDialog(this,
                             "Every red row now follows the new Bellman-Ford shortest paths.");
                 } else if (bfSession != null) {
-                    statusLabel.setText("Table updated. " + bfSession.remainingRepairs()
-                            + " router(s) still have red rows.");
+                    setStatus("Table updated. " + bfSession.remainingRepairs()
+                            + " router(s) still have red rows.", GameTheme.VIOLET);
+                    canvas.setBanner("Keep repairing", bfSession.remainingRepairs() + " router(s) left");
                 }
             }
         }
@@ -310,26 +376,32 @@ public final class RoutingGameFrame extends JFrame {
         }
         if (hopSession.packetArrived()) {
             if (hopSession.playerPathSuboptimal()) {
-                statusLabel.setText("Arrived. Orange = yours, dashed green = shortest.");
+                setStatus("Arrived. Orange = yours, dashed green = shortest.", GameTheme.AMBER);
+                canvas.setBanner("Arrived", "your path vs shortest path");
                 JOptionPane.showMessageDialog(this,
                         "Packet reached the destination on another path.\n\n"
                                 + "Your path: " + hopSession.formatPath(hopSession.playerPath()) + "\n"
                                 + "Shortest:  " + hopSession.formatPath(hopSession.optimalPath()));
             } else {
-                statusLabel.setText("Packet arrived.");
+                setStatus("Packet arrived.", GameTheme.LIME);
+                canvas.setBanner("Packet arrived", hopSession.formatPath(hopSession.playerPath()));
+                canvas.showToast("Packet arrived", GameTheme.LIME);
                 JOptionPane.showMessageDialog(this,
                         "Packet arrived.\n" + hopSession.formatPath(hopSession.playerPath()));
             }
             return;
         }
         if (hopSession.allDone()) {
-            statusLabel.setText("All tables done. Packet still at "
-                    + hopSession.map().node(hopSession.packetNode()).label() + ".");
+            setStatus("All tables done. Packet still at "
+                    + hopSession.map().node(hopSession.packetNode()).label() + ".", GameTheme.AMBER);
         } else {
-            statusLabel.setText("Packet at " + hopSession.map().node(hopSession.packetNode()).label()
+            setStatus("Packet at " + hopSession.map().node(hopSession.packetNode()).label()
                     + ". Level " + hopSession.unlockedLevel()
                     + " · " + hopSession.remainingOnCurrentLevel()
-                    + " router(s) left.");
+                    + " router(s) left.", GameTheme.CYAN);
+            canvas.setBanner("Packet at " + hopSession.map().node(hopSession.packetNode()).label(),
+                    "level " + hopSession.unlockedLevel() + " · "
+                            + hopSession.remainingOnCurrentLevel() + " left");
         }
     }
 
@@ -356,18 +428,18 @@ public final class RoutingGameFrame extends JFrame {
         if (bfSession != null) {
             if (bfSession.failedLink() == null) {
                 progressLabel.setText("Click a link to fail it");
+                canvas.setBanner("Fail a link", "hover a weighted edge, then click");
                 return;
             }
             int done = bfSession.affectedRouterCount() - bfSession.remainingRepairs();
-            progressLabel.setText("Failed: " + bfSession.formatLink(bfSession.failedLink())
-                    + "    Accepted: " + done
-                    + "/" + bfSession.affectedRouterCount());
+            progressLabel.setText(bfSession.formatLink(bfSession.failedLink())
+                    + "   " + done + "/" + bfSession.affectedRouterCount());
             return;
         }
-        progressLabel.setText("PKT: " + hopSession.map().node(hopSession.packetNode()).label()
-                + "    Level: " + hopSession.unlockedLevel()
+        progressLabel.setText("PKT " + hopSession.map().node(hopSession.packetNode()).label()
+                + "   Lv " + hopSession.unlockedLevel()
                 + "/" + hopSession.map().maxRouterLevel()
-                + "    Accepted: " + hopSession.completedNodes().size()
+                + "   " + hopSession.completedNodes().size()
                 + "/" + hopSession.map().routers().size());
     }
 }
