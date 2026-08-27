@@ -32,6 +32,10 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### Node / web build ###
+node_modules/
+dist/
+
 ### VS Code ###
 .vscode/
 

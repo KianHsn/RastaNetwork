@@ -1,0 +1,17 @@
+{
+  "name": "network-routing-game",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Network routing table game — web port",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "node web/src/smoke.js"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5",
+    "vite-plugin-singlefile": "^2.2.0"
+  }
+}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Network Routing Table Game</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="top-bar">
+        <div class="wordmark" id="wordmark">Routing Lab</div>
+        <div class="controls">
+          <button id="routing-mode" class="glow ghost" title="Hop-by-hop forwarding game">Routing</button>
+          <button id="bf-mode" class="glow ghost selected" title="Fail a link, then repair Bellman-Ford tables">Bellman-Ford</button>
+          <label class="size-label">Nodes
+            <select id="size-box">
+              <option value="6" selected>6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </label>
+          <button id="new-game" class="glow primary" title="Generate a new random network">New network</button>
+          <button id="check-table" class="glow accent" title="Check the selected router table">Check update</button>
+          <button id="show-neighbors" class="glow ghost" title="Show neighbors of the selected router">Neighbors</button>
+        </div>
+        <div class="progress-chip"><span id="progress-label">Ready</span></div>
+      </header>
+
+      <div class="workspace">
+        <div class="canvas-wrap">
+          <canvas id="network-canvas" width="900" height="640"></canvas>
+        </div>
+        <aside class="side">
+          <div class="help-card">
+            <p id="help-label"></p>
+          </div>
+          <section id="table-panel" class="table-card">
+            <div class="table-header">
+              <h2 data-table-title>Select a router</h2>
+              <span class="badge" data-table-badge>idle</span>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead data-table-head>
+                  <tr><th>Destination</th><th>Next router</th></tr>
+                </thead>
+                <tbody data-table-body></tbody>
+              </table>
+            </div>
+            <p class="table-hint" data-table-hint>Click a glowing router on the map</p>
+          </section>
+        </aside>
+      </div>
+
+      <footer class="status-bar">
+        <div id="status-accent" class="status-accent"></div>
+        <p id="status-label">Start a new game.</p>
+      </footer>
+    </div>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <p id="modal-text"></p>
+        <button id="modal-ok" class="glow primary">OK</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
